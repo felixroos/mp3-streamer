@@ -78,7 +78,7 @@ async function run() {
   document.addEventListener("click", async () => {
     fetch("/.netlify/functions/hello")
       .then((res) => res.json())
-      .then(console.log);
+      .then((json) => console.log("HELLO", json));
 
     const bitRate = 320000;
     let start = 0,
