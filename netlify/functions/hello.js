@@ -1,9 +1,9 @@
-const rangeParser = require("range-parser");
-const fs = require("fs");
+/* const rangeParser = require("range-parser");
+const fs = require("fs"); */
 const audioFile = require("../../numsdrums.mp3");
 
 exports.handler = async function (event, context) {
-  console.log("audioFile", audioFile);
+  console.log("audioFile", typeof audioFile);
   const rangeHeader = event.headers["range"];
   /*   if (rangeHeader) {
     const ranges = rangeParser(audioFileSize, rangeHeader, { combine: true });
@@ -37,6 +37,6 @@ exports.handler = async function (event, context) {
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ audioFile }),
+    body: JSON.stringify({ hello: "helo" }),
   };
 };
