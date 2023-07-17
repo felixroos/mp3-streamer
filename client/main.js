@@ -2,7 +2,7 @@ import { MPEGDecoder } from "mpg123-decoder";
 
 const decoder = new MPEGDecoder();
 const ac = new AudioContext();
-const audioUrl = "http://localhost:3000/";
+const audioUrl = "/.netlify/functions/hello";
 
 async function fetchAudioBuffer(url, startRange, endRange) {
   try {
@@ -76,10 +76,6 @@ async function run() {
   await decoder.ready;
 
   document.addEventListener("click", async () => {
-    fetch("/.netlify/functions/hello")
-      .then((res) => res.json())
-      .then((json) => console.log("HELLO", json));
-
     const bitRate = 320000;
     let start = 0,
       max = 1765876,
