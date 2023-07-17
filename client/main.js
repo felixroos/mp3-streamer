@@ -86,7 +86,7 @@ async function run() {
     // samplerate: 44100 samples per second
 
     let decodedSample = 0;
-    let delay = 2;
+    let delay = 1;
     let startSampleOffset = 0;
     const scalingFactor = 100;
 
@@ -100,7 +100,7 @@ async function run() {
       // inspired by https://github.com/eshaz/icecast-metadata-js/blob/7c234e44f9a361b92c83203b9e03b4177ecf7a21/src/icecast-metadata-player/src/players/WebAudioPlayer.js#L286-L303
       const startSamples = decodedSample * scalingFactor + startSampleOffset;
       const audioContextSamples = Math.round(
-        ac.currentTime * sampleRate * scalingFactor
+        (ac.currentTime - delay) * sampleRate * scalingFactor
       );
       if (startSamples < audioContextSamples) {
         startSampleOffset += audioContextSamples - startSamples;
