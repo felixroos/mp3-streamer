@@ -1,5 +1,9 @@
 const rangeParser = require("range-parser");
 
+const audioFilePath = "../../numsdrums.mp3"; // Replace with the actual path to your audio file
+
+const audioFileSize = fs.statSync(audioFilePath).size;
+
 exports.handler = async function (event, context) {
   const rangeHeader = event.headers["range"];
 
