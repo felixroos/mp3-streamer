@@ -84,8 +84,10 @@ async function run() {
     // bit rate: 320000 bits per second
     // samplerate: 44100 samples per second
 
-    let samples = 0;
+    let decodedSample = 0;
     let delay = 1;
+    let startSampleOffset = 0;
+    const scalingFactor = 100;
 
     while (start < max) {
       let end = Math.min(max, start + step);
@@ -94,12 +96,19 @@ async function run() {
       const { samplesDecoded, sampleRate, audioBuffer } =
         await arrayBufferToAudioBuffer(arrayBuffer);
 
-      const totalBytes = (bitRate / 8 / sampleRate) * samplesDecoded;
-      console.log("totalBytes", totalBytes);
+      // inspired by https://github.com/eshaz/icecast-metadata-js/blob/7c234e44f9a361b92c83203b9e03b4177ecf7a21/src/icecast-metadata-player/src/players/WebAudioPlayer.js#L286-L303
+      const startSamples = decodedSample * scalingFactor + startSampleOffset;
+      const audioContextSamples = Math.round(
+        ac.currentTime * sampleRate * scalingFactor
+      );
+      if (startSamples < audioContextSamples) {
+        startSampleOffset += audioContextSamples - startSamples;
+      }
+      const time = startSamples / sampleRate / scalingFactor + delay;
+      // END NEW
 
-      const time = ac.currentTime + samples / sampleRate + delay;
       playBuffer(audioBuffer, 1, time);
-      samples += samplesDecoded;
+      decodedSample += samplesDecoded;
 
       start = end;
     }
