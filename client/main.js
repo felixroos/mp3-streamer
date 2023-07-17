@@ -3,6 +3,14 @@ import { MPEGDecoder } from "mpg123-decoder";
 const decoder = new MPEGDecoder();
 const ac = new AudioContext();
 const audioUrl = "/.netlify/functions/stream";
+let volume = 1;
+const mix = ac.createGain();
+mix.connect(ac.destination);
+
+document.getElementById("slider").addEventListener("input", (e) => {
+  volume = e.target.value / 100;
+  mix.gain.value = volume;
+});
 
 async function fetchAudioBuffer(url, startRange, endRange) {
   try {
@@ -35,18 +43,10 @@ async function fetchAudioBuffer(url, startRange, endRange) {
   }
 }
 
-const playBuffer = (
-  buffer,
-  g = 1,
-  time = ac.currentTime,
-  destination = ac.destination
-) => {
+const playBuffer = (buffer, time = ac.currentTime) => {
   const src = ac.createBufferSource();
   src.buffer = buffer;
-  const gain = ac.createGain();
-  gain.gain.value = g;
-  src.connect(gain);
-  gain.connect(destination);
+  src.connect(mix);
   src.start(time);
 };
 
@@ -75,7 +75,7 @@ async function arrayBufferToAudioBuffer(arrayBuffer) {
 async function run() {
   await decoder.ready;
 
-  document.addEventListener("click", async () => {
+  document.getElementById("play").addEventListener("click", async () => {
     await ac.resume();
     const bitRate = 320000;
     let start = 0,
@@ -108,7 +108,7 @@ async function run() {
       const time = startSamples / sampleRate / scalingFactor + delay;
       // END NEW
 
-      playBuffer(audioBuffer, 1, time);
+      playBuffer(audioBuffer, time);
       decodedSample += samplesDecoded;
 
       start = end;
