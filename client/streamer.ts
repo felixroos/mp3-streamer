@@ -21,6 +21,8 @@ export class Streamer {
   delay = 1;
   startSampleOffset = 0;
   scalingFactor = 100;
+  _playing = false;
+  buffers: { audioBuffer: AudioBuffer; time: number; progress: number }[] = [];
 
   constructor(options: StreamerOptions) {
     Object.assign(this, options);
@@ -42,12 +44,6 @@ export class Streamer {
       throw new Error("No Content-Range or Content-Length header reiceved!");
     }
     const bytes = contentRangeHeader.split("/")[1];
-    console.log(
-      "Content-Range",
-      contentRangeHeader,
-      "Content-Length",
-      contentLengthHeader
-    );
     if (!contentRangeHeader || !contentLengthHeader) {
       throw new Error("Server did not provide range support.");
     }
@@ -60,6 +56,10 @@ export class Streamer {
     src.buffer = buffer;
     src.connect(this.destination);
     src.start(time);
+    src.onended = () => {
+      this.buffers.shift();
+      // console.log("buffer ended", src);
+    };
   }
 
   async arrayBufferToAudioBuffer(buffer) {
@@ -101,6 +101,7 @@ export class Streamer {
       this.startSampleOffset += audioContextSamples - startSamples;
     }
     const time = startSamples / sampleRate / this.scalingFactor + this.delay;
+    this.buffers.push({ audioBuffer, time, progress: this.start / this.max });
 
     this.playBuffer(audioBuffer, time);
     this.decodedSample += samplesDecoded;
@@ -108,10 +109,46 @@ export class Streamer {
     this.start = end;
   }
 
-  async play() {
-    await this.ac.resume();
+  set playing(value) {
+    this._playing = value;
+  }
+  get playing() {
+    return this._playing;
+  }
 
-    while (this.start < this.max) {
+  get currentBuffer() {
+    return this.buffers[0];
+  }
+
+  get progress() {
+    if (!this.currentBuffer) {
+      return 0;
+    }
+    const { progress } = this.currentBuffer;
+    return progress;
+  }
+
+  get bufferProgress() {
+    if (!this.max || !this.start) {
+      return 0;
+    }
+    return this.start / this.max;
+  }
+
+  async play() {
+    this.playing = false;
+    await this.ac.resume();
+    this.bitRate = 320000;
+    this.start = 0;
+    this.max = 1765876;
+    this.step = this.bitRate / 8;
+    this.decodedSample = 0;
+    this.delay = 1;
+    this.startSampleOffset = 0;
+    this.scalingFactor = 100;
+    this.playing = true;
+
+    while (this.start < this.max && this.playing) {
       await this.processChunk();
     }
   }

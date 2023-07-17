@@ -1,5 +1,6 @@
 import { MPEGDecoder } from "mpg123-decoder";
 import { Streamer } from "./streamer";
+import "./style.css";
 
 const decoder = new MPEGDecoder();
 const ac = new AudioContext();
@@ -19,6 +20,13 @@ document.getElementById("slider").addEventListener("input", (e) => {
   volume = e.target.value / 100;
   mix.gain.value = volume;
 });
+
+setInterval(() => {
+  const pp = document.getElementById("play-progress");
+  pp.style.width = `${Math.round(streamer.progress * 100)}%`;
+  const bp = document.getElementById("buffer-progress");
+  bp.style.width = `${Math.round(streamer.bufferProgress * 100)}%`;
+}, 500);
 
 async function run() {
   await decoder.ready;
