@@ -4,7 +4,6 @@ const audioFilePath = "./numsdrums.mp3"; // Replace with the actual path to your
 
 exports.handler = async function (event, context) {
   const rangeHeader = event.headers["range"];
-  console.log('lets goo');
   const audioFileSize = fs.statSync(audioFilePath).size;
   if (rangeHeader) {
     const ranges = rangeParser(audioFileSize, rangeHeader, { combine: true });
@@ -13,7 +12,8 @@ exports.handler = async function (event, context) {
         statusCode: 416,
         body: "Requested Range Not Satisfiable",
       };
-    } else if (ranges.type === "bytes") {
+    }
+    if (ranges.type === "bytes") {
       const range = ranges[0];
       const start = range.start;
       const end = range.end;
@@ -32,5 +32,9 @@ exports.handler = async function (event, context) {
         body: fileStream,
       };
     }
+    return {
+      status: 400,
+      body: "Unknown Error",
+    };
   }
 };
