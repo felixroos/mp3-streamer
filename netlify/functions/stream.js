@@ -19,7 +19,8 @@ exports.handler = async function (event, context) {
       const end = range.end;
       const chunkSize = end - start + 1;
 
-      const fileStream = fs.createReadStream(audioFilePath, { start, end });
+      const fileBuffer = fs.readFileSync(audioFilePath);
+      const fileContents = fileBuffer.slice(start, end + 1);
 
       const headers = {
         "Content-Type": "audio/mpeg",
@@ -29,7 +30,8 @@ exports.handler = async function (event, context) {
       return {
         headers,
         statusCode: 206,
-        body: fileStream,
+        body: fileContents.toString("base64"),
+        isBase64Encoded: true,
       };
     }
     return {
