@@ -1,11 +1,11 @@
-/* const rangeParser = require("range-parser");
-const fs = require("fs"); */
-const audioFile = require("../../numsdrums.mp3");
+const rangeParser = require("range-parser");
+const fs = require("fs");
+const audioFilePath = "./numsdrums.mp3"; // Replace with the actual path to your audio file
 
 exports.handler = async function (event, context) {
-  console.log("audioFile", typeof audioFile);
   const rangeHeader = event.headers["range"];
-  /*   if (rangeHeader) {
+  const audioFileSize = fs.statSync(audioFilePath).size;
+  if (rangeHeader) {
     const ranges = rangeParser(audioFileSize, rangeHeader, { combine: true });
     if (!ranges) {
       return {
@@ -13,30 +13,23 @@ exports.handler = async function (event, context) {
         body: "Requested Range Not Satisfiable",
       };
     } else if (ranges.type === "bytes") {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ ranges }),
-      };
       const range = ranges[0];
       const start = range.start;
       const end = range.end;
       const chunkSize = end - start + 1;
+
       const fileStream = fs.createReadStream(audioFilePath, { start, end });
-      const head = {
+
+      const headers = {
         "Content-Type": "audio/mpeg",
         "Content-Length": chunkSize,
         "Content-Range": `bytes ${start}-${end}/${audioFileSize}`,
       };
-      console.log(head);
-      res.writeHead(206, "Partial Content", head);
-
-      fileStream.pipe(res);
-      return;
+      return {
+        headers,
+        statusCode: 206,
+        body: fileStream,
+      };
     }
-  } */
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ hello: "helo" }),
-  };
+  }
 };

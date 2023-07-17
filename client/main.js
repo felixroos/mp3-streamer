@@ -2,7 +2,7 @@ import { MPEGDecoder } from "mpg123-decoder";
 
 const decoder = new MPEGDecoder();
 const ac = new AudioContext();
-const audioUrl = "/.netlify/functions/hello";
+const audioUrl = "/.netlify/functions/stream";
 
 async function fetchAudioBuffer(url, startRange, endRange) {
   try {
