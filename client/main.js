@@ -76,6 +76,7 @@ async function run() {
   await decoder.ready;
 
   document.addEventListener("click", async () => {
+    await ac.resume();
     const bitRate = 320000;
     let start = 0,
       max = 1765876,
