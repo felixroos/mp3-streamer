@@ -1,14 +1,11 @@
 const rangeParser = require("range-parser");
 const fs = require("fs");
-
-const audioFilePath = "../../numsdrums.mp3"; // Replace with the actual path to your audio file
-
-const audioFileSize = fs.statSync(audioFilePath).size;
+const audioFile = require("../../numsdrums.mp3");
 
 exports.handler = async function (event, context) {
+  console.log("audioFile", audioFile);
   const rangeHeader = event.headers["range"];
-
-  if (rangeHeader) {
+  /*   if (rangeHeader) {
     const ranges = rangeParser(audioFileSize, rangeHeader, { combine: true });
     if (!ranges) {
       return {
@@ -20,7 +17,7 @@ exports.handler = async function (event, context) {
         statusCode: 200,
         body: JSON.stringify({ ranges }),
       };
-      /* const range = ranges[0];
+      const range = ranges[0];
       const start = range.start;
       const end = range.end;
       const chunkSize = end - start + 1;
@@ -34,12 +31,12 @@ exports.handler = async function (event, context) {
       res.writeHead(206, "Partial Content", head);
 
       fileStream.pipe(res);
-      return; */
+      return;
     }
-  }
+  } */
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ event, context }),
+    body: JSON.stringify({ audioFile }),
   };
 };
