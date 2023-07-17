@@ -6,20 +6,13 @@
     <title>mp3-streamer</title>
   </head>
   <body style="height: 100%; margin: 0">
+    <div id="controls">
+      <input id="slider" type="range" />
+      <button id="play">PLAY</button>
+    </div>
     <div id="progress">
       <div id="play-progress"></div>
       <div id="buffer-progress"></div>
-    </div>
-    <div
-      style="
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100%;
-      "
-    >
-      <input id="slider" type="range" />
-      <button id="play">PLAY</button>
     </div>
     <script type="module" src="/main.js"></script>
   </body>
