@@ -86,7 +86,7 @@ async function run() {
     // samplerate: 44100 samples per second
 
     let decodedSample = 0;
-    let delay = 1;
+    let delay = 2;
     let startSampleOffset = 0;
     const scalingFactor = 100;
 
