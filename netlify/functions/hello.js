@@ -1,4 +1,5 @@
 const rangeParser = require("range-parser");
+const fs = require("fs");
 
 const audioFilePath = "../../numsdrums.mp3"; // Replace with the actual path to your audio file
 
