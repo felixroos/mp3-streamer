@@ -76,8 +76,10 @@ async function run() {
   await decoder.ready;
 
   document.addEventListener("click", async () => {
-    fetch("/.netlify/functions/hello").then(console.log);
-    
+    fetch("/.netlify/functions/hello")
+      .then((res) => res.json())
+      .then(console.log);
+
     const bitRate = 320000;
     let start = 0,
       max = 1765876,
