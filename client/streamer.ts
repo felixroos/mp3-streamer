@@ -21,7 +21,13 @@ export class Streamer {
   decodedSample = 0; // sample position
   delay = 1; // seconds until playback starts
   _playing = false;
-  buffers: { audioBuffer: AudioBuffer; time: number; progress: number }[] = [];
+  buffers: {
+    audioBuffer: AudioBuffer;
+    time: number;
+    progress: number;
+    start: number;
+    decodedSample: number;
+  }[] = [];
   callbackNodes: any[] = [];
   currentSource = null;
   output;
@@ -97,7 +103,7 @@ export class Streamer {
     return { audioBuffer, samplesDecoded, sampleRate };
   }
 
-  async processChunk() {
+  async processChunk(offset) {
     let start = this.start; // start of chunk bytes (as fetched)
     let end = Math.min(this.max, this.start + this.step); // end of chunk
 
@@ -108,9 +114,15 @@ export class Streamer {
 
     const time = this.decodedSample / sampleRate + this.delay;
 
-    this.buffers.push({ audioBuffer, time, progress: this.start / this.max });
+    this.buffers.push({
+      audioBuffer,
+      time,
+      progress: this.start / this.max,
+      start: this.start,
+      decodedSample: this.decodedSample,
+    });
 
-    const play = () => this.playBuffer(audioBuffer, time);
+    const play = () => this.playBuffer(audioBuffer, time + offset);
     this.decodedSample += samplesDecoded;
 
     this.start = end;
@@ -144,26 +156,30 @@ export class Streamer {
   }
 
   async play() {
-    if (!this.pausedAt) {
-      this.playing = false;
-      await this.ac.resume();
-      this.bitRate = 320000;
-      this.start = 0;
-      this.max = 1765876;
-      this.step = this.bitRate / 8;
-      this.decodedSample = 0;
-      this.delay = 1;
-      this.resetOutput();
-    }
+    console.log("play", this.progress, this.bufferProgress);
+    this.playing = false;
+    await this.ac.resume();
+    this.bitRate = 320000;
+    this.max = 1765876;
+    this.step = this.bitRate / 8;
+
+    const startOffset = this.currentBuffer?.start ?? 0; // bytes
+    const sampleOffset = this.currentBuffer?.decodedSample ?? 0; // samples
+    const secondOffset = (startOffset * 8) / this.bitRate;
+    //const secondOffset = this.pausedAt ? this.pausedAt - this.startedAt : 0;
+
+    // this.buffers = [];
+    this.start = startOffset;
+    // this.start = Math.max(startOffset - this.step, 0); // scrub back a little bit
+    this.decodedSample = sampleOffset;
+
+    this.delay = this.ac.currentTime + 0.5;
+    this.resetOutput();
     this.playing = true;
     let first = true;
 
     while (this.start < this.max && this.playing) {
-      const { time, play, sampleRate } = await this.processChunk();
-      if (first) {
-        this.startedAt = time;
-        this.sampleRate = sampleRate;
-      }
+      let { time, play } = await this.processChunk(-secondOffset);
       // start();
       const node = this.createWebAudioCallback(() => {
         if (this.playing) {
@@ -171,7 +187,7 @@ export class Streamer {
         } else {
           console.log("not playing anymore...");
         }
-      }, time);
+      }, time - secondOffset);
       this.callbackNodes.push(node);
       first = false;
     }
@@ -188,13 +204,16 @@ export class Streamer {
   }
 
   pause() {
-    console.log("pause!", this.buffers.length);
     this.pausedAt = this.ac.currentTime;
 
     this.wipeCallbacks();
     this.output.gain.setValueAtTime(1, this.pausedAt);
     this.output.gain.linearRampToValueAtTime(0, this.pausedAt + 0.1);
     this.playing = false;
+  }
+  stop() {
+    this.pause();
+    this.buffers = [];
   }
 
   createWebAudioCallback(callback, time) {
