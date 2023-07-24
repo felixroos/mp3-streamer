@@ -13,14 +13,13 @@ export class Streamer {
   decoder: MPEGDecoder;
   destination: GainNode;
 
-  bitRate = 320000;
-  start = 0;
-  max = 1765876;
-  step = this.bitRate / 8;
-  decodedSample = 0;
-  delay = 1;
-  startSampleOffset = 0;
-  scalingFactor = 100;
+  bitRate = 320000; // bits per second
+  sampleRate; // samples per second
+  start = 0; // byte position
+  max = 1765876; // max bytes
+  step = this.bitRate / 8; // bytes per chunk
+  decodedSample = 0; // sample position
+  delay = 1; // seconds until playback starts
   _playing = false;
   buffers: { audioBuffer: AudioBuffer; time: number; progress: number }[] = [];
   callbackNodes: any[] = [];
@@ -98,13 +97,6 @@ export class Streamer {
     return { audioBuffer, samplesDecoded, sampleRate };
   }
 
-  samples2seconds(numberOfSamples, sampleRate) {
-    return numberOfSamples / sampleRate / this.scalingFactor;
-  }
-  seconds2samples(seconds, sampleRate) {
-    return Math.round(seconds * this.scalingFactor * sampleRate);
-  }
-
   async processChunk() {
     let start = this.start; // start of chunk bytes (as fetched)
     let end = Math.min(this.max, this.start + this.step); // end of chunk
@@ -114,20 +106,7 @@ export class Streamer {
     const { samplesDecoded, sampleRate, audioBuffer } =
       await this.arrayBufferToAudioBuffer(buffer);
 
-    // inspired by https://github.com/eshaz/icecast-metadata-js/blob/7c234e44f9a361b92c83203b9e03b4177ecf7a21/src/icecast-metadata-player/src/players/WebAudioPlayer.js#L286-L303
-    const startSamples =
-      this.decodedSample * this.scalingFactor + this.startSampleOffset;
-
-    /* const audioContextSamples = this.seconds2samples(
-      this.ac.currentTime - this.delay,
-      sampleRate
-    );
-
-    if (startSamples < audioContextSamples) {
-      this.startSampleOffset += audioContextSamples - startSamples;
-    } */
-
-    const time = this.samples2seconds(startSamples, sampleRate) + this.delay;
+    const time = this.decodedSample / sampleRate + this.delay;
 
     this.buffers.push({ audioBuffer, time, progress: this.start / this.max });
 
@@ -135,7 +114,7 @@ export class Streamer {
     this.decodedSample += samplesDecoded;
 
     this.start = end;
-    return { play, time, start, end };
+    return { play, time, start, end, sampleRate };
   }
 
   set playing(value) {
@@ -165,38 +144,29 @@ export class Streamer {
   }
 
   async play() {
-    let resumeTime;
-    // check if player is resuming (has been paused before => pausedAt is set)
-    if (this.pausedAt) {
-      resumeTime = this.pausedAt - this.startedAt;
-      console.log("resumeTime", resumeTime);
+    if (!this.pausedAt) {
+      this.playing = false;
+      await this.ac.resume();
+      this.bitRate = 320000;
+      this.start = 0;
+      this.max = 1765876;
+      this.step = this.bitRate / 8;
+      this.decodedSample = 0;
+      this.delay = 1;
+      this.resetOutput();
     }
-
-    this.playing = false;
-    await this.ac.resume();
-    this.bitRate = 320000;
-    this.start = 0;
-    this.max = 1765876;
-    this.step = this.bitRate / 8;
-    this.decodedSample = 0;
-    this.delay = 1;
-    this.startSampleOffset = 0;
-    this.scalingFactor = 100;
     this.playing = true;
-    this.resetOutput();
     let first = true;
 
     while (this.start < this.max && this.playing) {
-      const { time, play, start, end } = await this.processChunk();
+      const { time, play, sampleRate } = await this.processChunk();
       if (first) {
         this.startedAt = time;
+        this.sampleRate = sampleRate;
       }
       // start();
       const node = this.createWebAudioCallback(() => {
         if (this.playing) {
-          /* const timeLeft = time - this.ac.currentTime;
-          console.log("schedule in ", timeLeft); */
-          console.log("start, end", start, end);
           play();
         } else {
           console.log("not playing anymore...");
