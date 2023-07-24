@@ -23,10 +23,26 @@ export class Streamer {
   scalingFactor = 100;
   _playing = false;
   buffers: { audioBuffer: AudioBuffer; time: number; progress: number }[] = [];
+  callbackNodes: any[] = [];
+  currentSource = null;
+  output;
+  startedAt;
+  pausedAt;
 
   constructor(options: StreamerOptions) {
     Object.assign(this, options);
   }
+
+  async resetOutput() {
+    if (this.output) {
+      this.output.gain.value = 0;
+    }
+    this.output = this.ac.createGain();
+    this.output.gain.value = 1;
+    this.output.connect(this.destination);
+    return this.output;
+  }
+
   async fetchAudioBuffer(startRange, endRange) {
     const response = await fetch(this.url, {
       headers: {
@@ -54,12 +70,12 @@ export class Streamer {
   playBuffer(buffer, time = this.ac.currentTime) {
     const src = this.ac.createBufferSource();
     src.buffer = buffer;
-    src.connect(this.destination);
+    src.connect(this.output);
     src.start(time);
     src.onended = () => {
       this.buffers.shift();
-      // console.log("buffer ended", src);
     };
+    return src;
   }
 
   async arrayBufferToAudioBuffer(buffer) {
@@ -82,9 +98,16 @@ export class Streamer {
     return { audioBuffer, samplesDecoded, sampleRate };
   }
 
+  samples2seconds(numberOfSamples, sampleRate) {
+    return numberOfSamples / sampleRate / this.scalingFactor;
+  }
+  seconds2samples(seconds, sampleRate) {
+    return Math.round(seconds * this.scalingFactor * sampleRate);
+  }
+
   async processChunk() {
-    let end = Math.min(this.max, this.start + this.step);
-    //console.log(`chunk ${this.start} - ${end}`);
+    let start = this.start; // start of chunk bytes (as fetched)
+    let end = Math.min(this.max, this.start + this.step); // end of chunk
 
     let { buffer } = await this.fetchAudioBuffer(this.start, end - 1);
 
@@ -94,19 +117,25 @@ export class Streamer {
     // inspired by https://github.com/eshaz/icecast-metadata-js/blob/7c234e44f9a361b92c83203b9e03b4177ecf7a21/src/icecast-metadata-player/src/players/WebAudioPlayer.js#L286-L303
     const startSamples =
       this.decodedSample * this.scalingFactor + this.startSampleOffset;
-    const audioContextSamples = Math.round(
-      (this.ac.currentTime - this.delay) * sampleRate * this.scalingFactor
+
+    /* const audioContextSamples = this.seconds2samples(
+      this.ac.currentTime - this.delay,
+      sampleRate
     );
+
     if (startSamples < audioContextSamples) {
       this.startSampleOffset += audioContextSamples - startSamples;
-    }
-    const time = startSamples / sampleRate / this.scalingFactor + this.delay;
+    } */
+
+    const time = this.samples2seconds(startSamples, sampleRate) + this.delay;
+
     this.buffers.push({ audioBuffer, time, progress: this.start / this.max });
 
-    this.playBuffer(audioBuffer, time);
+    const play = () => this.playBuffer(audioBuffer, time);
     this.decodedSample += samplesDecoded;
 
     this.start = end;
+    return { play, time, start, end };
   }
 
   set playing(value) {
@@ -136,6 +165,13 @@ export class Streamer {
   }
 
   async play() {
+    let resumeTime;
+    // check if player is resuming (has been paused before => pausedAt is set)
+    if (this.pausedAt) {
+      resumeTime = this.pausedAt - this.startedAt;
+      console.log("resumeTime", resumeTime);
+    }
+
     this.playing = false;
     await this.ac.resume();
     this.bitRate = 320000;
@@ -147,10 +183,67 @@ export class Streamer {
     this.startSampleOffset = 0;
     this.scalingFactor = 100;
     this.playing = true;
+    this.resetOutput();
+    let first = true;
 
     while (this.start < this.max && this.playing) {
-      await this.processChunk();
+      const { time, play, start, end } = await this.processChunk();
+      if (first) {
+        this.startedAt = time;
+      }
+      // start();
+      const node = this.createWebAudioCallback(() => {
+        if (this.playing) {
+          /* const timeLeft = time - this.ac.currentTime;
+          console.log("schedule in ", timeLeft); */
+          console.log("start, end", start, end);
+          play();
+        } else {
+          console.log("not playing anymore...");
+        }
+      }, time);
+      this.callbackNodes.push(node);
+      first = false;
     }
   }
-  pause() {}
+
+  wipeCallbacks() {
+    this.callbackNodes.forEach((node) => {
+      node.ignoreCallback = true;
+      if (node["started"]) {
+        node.stop();
+      }
+    });
+    this.callbackNodes = [];
+  }
+
+  pause() {
+    console.log("pause!", this.buffers.length);
+    this.pausedAt = this.ac.currentTime;
+
+    this.wipeCallbacks();
+    this.output.gain.setValueAtTime(1, this.pausedAt);
+    this.output.gain.linearRampToValueAtTime(0, this.pausedAt + 0.1);
+    this.playing = false;
+  }
+
+  createWebAudioCallback(callback, time) {
+    const constantSourceNode = this.ac.createConstantSource();
+    constantSourceNode.onended = () => {
+      if (!constantSourceNode["ignoreCallback"]) {
+        callback();
+      } else {
+        console.log("ignore callback!");
+      }
+    };
+    // constantSourceNode.connect(this.ac.destination);
+    if (time > this.ac.currentTime) {
+      constantSourceNode.start(time - 0.2);
+      constantSourceNode["started"] = true;
+      constantSourceNode.stop(time - 0.1);
+    }
+    return constantSourceNode;
+  }
 }
+
+export class Chunk {}

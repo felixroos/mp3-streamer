@@ -34,6 +34,9 @@ async function run() {
   document
     .getElementById("play")
     .addEventListener("click", () => streamer.play());
+  document
+    .getElementById("pause")
+    .addEventListener("click", () => streamer.pause());
 }
 
 run();
